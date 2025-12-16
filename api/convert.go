@@ -5,11 +5,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
-func ImagesToPDFHandler(w http.ResponseWriter, r *http.Request) {
+func Handler(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(50 << 20)
 	files := r.MultipartForm.File["files"]
 
@@ -18,7 +17,9 @@ func ImagesToPDFHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var readers []io.Reader
+	readers := make([]io.Reader, 0, len(files))
+	openFiles := make([]io.Closer, 0, len(files))
+
 	for _, fh := range files {
 		f, err := fh.Open()
 		if err != nil {
@@ -27,11 +28,17 @@ func ImagesToPDFHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer f.Close()
+		openFiles = append(openFiles, f)
 		readers = append(readers, f)
 	}
 
-	var pdfBuf bytes.Buffer
+	defer func() {
+		for _, f := range openFiles {
+			f.Close()
+		}
+	}()
 
+	var pdfBuf bytes.Buffer
 	err := api.ImportImages(nil, &pdfBuf, readers, nil, nil)
 
 	if err != nil {
@@ -41,10 +48,4 @@ func ImagesToPDFHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", "attachment; filename=images.pdf")
 	w.Write(pdfBuf.Bytes())
-}
-
-func main() {
-	r := chi.NewRouter()
-	r.Post("/convert", ImagesToPDFHandler)
-	http.ListenAndServe(":8080", r)
 }
