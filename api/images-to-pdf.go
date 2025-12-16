@@ -9,7 +9,10 @@ import (
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(50 << 20)
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		http.Error(w, "error parsing multiform", http.StatusBadRequest)
+	}
+
 	files := r.MultipartForm.File["files"]
 
 	if len(files) == 0 {
@@ -27,7 +30,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		defer f.Close()
 		openFiles = append(openFiles, f)
 		readers = append(readers, f)
 	}
@@ -43,6 +45,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/pdf")
