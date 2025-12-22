@@ -11,6 +11,7 @@ import (
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(50 << 20); err != nil {
 		http.Error(w, "error parsing multiform", http.StatusBadRequest)
+		return
 	}
 
 	files := r.MultipartForm.File["files"]
